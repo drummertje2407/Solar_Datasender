@@ -1,0 +1,17 @@
+{
+    "COMports":
+    {
+    "Arduino":  "/dev/ttyACM0",
+    "MPPT1":    "/dev/ttyUSB_A",
+    "MPPT2":    "/dev/ttyUSB_B",
+    "BMV":      ""
+    },
+    "DiscordBot":
+    {
+        "Clientid": "NTQ4OTAxOTUwNDUyNzkzMzYw.D20wgw.oXmTalXAgOvTFRzaTfwRm6bRoa0",
+        "DefaultChannel":   "548903693009813524"
+    }
+
+}
+
+      
