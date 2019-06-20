@@ -1,17 +1,18 @@
 {
-    "COMports":
-    {
-    "Arduino":  "/dev/ttyACM0",
-    "MPPT1":    "/dev/ttyUSB_A",
-    "MPPT2":    "/dev/ttyUSB_B",
-    "BMV":      ""
+    "COMports": {
+        "Arduino": "COM3",
+        "BMV": "/dev/ttyAMA0",
+        "MPPT1": "/dev/ttyUSB_A",
+        "MPPT2": "/dev/ttyUSB_B"
     },
-    "DiscordBot":
-    {
+    "DiscordBot": {
         "Clientid": "NTQ4OTAxOTUwNDUyNzkzMzYw.D20wgw.oXmTalXAgOvTFRzaTfwRm6bRoa0",
-        "DefaultChannel":   "548903693009813524"
+        "DefaultChannel": "548903693009813524"
+    },
+    "InfluxDB": {
+        "Server_ip": "217.105.168.111",
+        "Username": "fynn",
+        "database": "EmelwerdaSolar",
+        "password": "24072003"
     }
-
 }
-
-      

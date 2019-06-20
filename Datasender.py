@@ -81,7 +81,7 @@ except Exception as ex:
 
 
 
-devRead = DeviceReader(Serverip, Database, Username, Password)
+devRead = DeviceReader()
 
 #Initialize all the Threads:
 Arduino_reader = threading.Thread(target=devRead.ArduinoHandler, args=(Arduino_Port, 5), daemon = True )
@@ -91,9 +91,9 @@ MPPT_reader_2  = threading.Thread(target=devRead.MPPTHandler_2, args=(MPPT_2_Por
 
 #Start all the Threads:
 Arduino_reader.start()
-#BMV_reader.start()
-#MPPT_reader_1.start()
-#MPPT_reader_2.start()
+BMV_reader.start()
+MPPT_reader_1.start()
+MPPT_reader_2.start()
 
 input()
 input()

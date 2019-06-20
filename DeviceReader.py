@@ -1,15 +1,19 @@
 import time
 import threading
 import serial
+import sys
+import influxdb
 
 class DeviceReader:
-    ArduinoDict =  {}
-    BMVDict     =  {}
-    MPPTDict_1  =  {}
-    MPPTDict_2  =  {}
-    
-    
+
+    def __init__(self, serverip, database, username, password ):
+        self.Serverip = serverip
+        self.Database = database
+        self.Username = username
+        self.Password = password
+        
     def ArduinoHandler(self, serialport, messages, baudrate = 115200, DTR = True):
+        
         succes = False
         try:
             
@@ -20,17 +24,16 @@ class DeviceReader:
                                 bytesize=   serial.EIGHTBITS, 
                                 timeout =   1)
             time.sleep(0.01)
-
-            
-
+        
         except serial.SerialException as ex:
             print("Arduino is disconnected")
             #strerror = "!!ArduinoDisconnected " + str(ex)
-            
             succes = True
-    
+            return
+
         except Exception as ex:
             print("Ran into an unhandled error!" + str(ex))
+            return
             #strerror = "!!Unknownerror " + str(ex)
         time.sleep(.5)
 
@@ -40,11 +43,17 @@ class DeviceReader:
             succes = self.handshake(ser)
             time.sleep(.5)
         
-        
+        try:
+            client = influxdb.InfluxDBClient(host= self.Serverip, port=8086, username = self.Username, password = self.Password, database = self.Database )
+        except Exception as ex:
+            #TODO logfunctien
+            print(str(ex))
+            return
 
 
-        #dictionary where al the data ends up, gets reset every data loop
-        Datadict = {}   
+
+        #list where al the data ends up, gets reset every data loop
+        datapoints = []
         
         #Main loop
         while (True):   
@@ -58,38 +67,43 @@ class DeviceReader:
             except serial.SerialException as ex:
                 print("Arduino was disconnected")
                 #await SendMessage("!!ArduinoDisconnected " + str(ex))
-
             except Exception as ex:
                 print("Ran into an unhandled error!" + str(ex))
                 #await SendMessage("!!Unknownerror " + str(ex))
                 
-            if len(data) > 0:    
-                
-                
-                
-                if data == "start": 
-                    
-                    if len(Datadict)== messages:
-                        
-                        Datadict["Time"]= str(time.time())
-                        #write out the data
-                        self.ArduinoDict = Datadict    
-                        
+            if len(data) > 0:        
+            
+                if data == 'start' :
+                    if datapoints != []: 
+                        try:
+                            if not client.write_points(datapoints):
+                                raise Exception("Datawrite failed")
+                            else:
+                                print("Succesfull Arduino datawrite")
 
-                        Datadict.clear()
+                        
+                        except Exception as ex:
+                            #TODO logmessage
+                            print(ex.args)
+                        
+                        #reset stuff
                         data = None
-
+                        datapoints = []
                 
                 elif data is not None:
-                    
                     Databuffer = str(data).split(" ",1)
-                    try:
-                        key = str(Databuffer[0])    
-                        Val = float(Databuffer[1])
-                        Datadict[key] = Val
-                    except:
-                        pass
-    
+                    
+                    timestamp = time.ctime()
+
+                    key = str(Databuffer[0])    
+                    Val = float(Databuffer[1])
+
+                    fields = {}
+                    fields["value"] = Val
+                    tags = []
+                    point = {"measurement": key, "time": timestamp, "fields": fields, "tags": tags}
+                    datapoints.append(point)
+
     def handshake(self, ser):
         try:
             ser.write('ready?'.encode())
@@ -108,11 +122,185 @@ class DeviceReader:
             print(data)
             return False
 
-    def BMVHandler(self):
-        pass
+    def BMVHandler(self, serialport, baudrate = 19200, debug = False):
+        
+        try:
+            client = influxdb.InfluxDBClient(host= self.Serverip, port=8086, username = self.Username, password = self.Password, database = self.Database )
+        except Exception as ex:
+            #TODO logfunctien
+            print(str(ex))
+            exit()
+        
+        
+        datapoints = []
+        try:
+            
+            ser = serial.Serial(port    =   serialport,
+                                baudrate=   baudrate, 
+                                parity  =   serial.PARITY_NONE, 
+                                stopbits=   serial.STOPBITS_ONE, 
+                                bytesize=   serial.EIGHTBITS, 
+                                timeout =   1)
+            time.sleep(0.01)
+
+            
+
+        except serial.SerialException as ex:
+            print("BMV is/was disconnected")
+            return
+            
     
+        except Exception as ex:
+            print("Ran into an unhandled error!" + str(ex))
+            return
+            
+        time.sleep(.5)
+
+
+
+        while True:
+            try:
+                data = ser.readline()
+            except serial.SerialException as ex:
+                print("BMV was/is disconnected")
+
+            try:
+                data = data.decode('utf-8')
+                data = data.rstrip()
+                #strip the /r/n ^^
+                
+            except UnicodeDecodeError as ex:
+            #passes the checksum, i don't use that shit.
+                pass
+            
+            if debug:
+                print (data)
+
+            if data == "PID	0x203": #start of dataloop  
+                if datapoints != []: 
+                    try:
+                        if not client.write_points(datapoints):
+                            raise Exception("Datawrite failed")
+                        else:
+                            print("Succesfull BMV datawrite")
+
+                    
+                    except Exception as ex:
+                        #TODO logmessage
+                        print(ex.args)
+                    
+                    #reset stuff
+                    data = None
+                    datapoints = []
+
+            elif data is not "":
+                #split on a tab
+                Databuffer = str(data).split("\t",1)
+                try:
+                    timestamp = time.ctime()
+
+                    key = str(Databuffer[0])    
+                    Val = float(Databuffer[1])
+
+                    fields = {}
+                    fields["value"] = Val
+                    tags = []
+                    point = {"measurement": key, "time": timestamp, "fields": fields, "tags": tags}
+                    datapoints.append(point)
+                except:
+                    pass        
+     
     def MPPTHandler_1(self, serialport, baudrate = 19200, debug = False):
-        Datadict = {}
+        try:
+            client = influxdb.InfluxDBClient(host= self.Serverip, port=8086, username = self.Username, password = self.Password, database = self.Database )
+        except Exception as ex:
+            #TODO logfunctien
+            print(str(ex))
+            return
+       
+        datapoints = []
+
+        try:
+            
+            ser = serial.Serial(port    =   serialport,
+                                baudrate=   baudrate, 
+                                parity  =   serial.PARITY_NONE, 
+                                stopbits=   serial.STOPBITS_ONE, 
+                                bytesize=   serial.EIGHTBITS, 
+                                timeout =   1)
+            time.sleep(0.01)
+
+        except serial.SerialException as ex:
+            print("MPPT1 is/was disconnected")
+            return
+        except Exception as ex:
+            print("Ran into an unhandled error!" + str(ex))
+            return
+            
+        time.sleep(.5)
+
+        while True:    
+            try:
+                data = ser.readline()
+            
+            except serial.SerialException as ex:
+                print("MPPT1 was/is disconnected")
+
+            try:
+                data = data.decode('utf-8')
+                data = data.rstrip()
+                #strip the /r/n ^^
+                
+            except UnicodeDecodeError as ex:
+            #passes the checksum, i don't use that shit.
+                pass
+            
+            if debug:
+                print (data)
+
+            if data == "PID	0xA042": #start of dataloop  
+                if datapoints != []: 
+                    try:
+                        if not client.write_points(datapoints):
+                            raise Exception("Datawrite failed")
+                        else:
+                            print("Succesfull MPPT1 datawrite")
+
+                    
+                    except Exception as ex:
+                        #TODO logmessage
+                        print(ex.args)
+                    
+                    #reset stuff
+                data = None
+                datapoints = []
+
+            elif data is not "":
+                #split on a tab
+                Databuffer = str(data).split("\t",1)
+                try:
+                    key = str(Databuffer[0])    
+                    Val = float(Databuffer[1])
+
+                    timestamp = time.ctime()
+
+                    fields = {}
+                    fields["value"] = Val
+                    tags = []
+                    point = {"measurement": key, "time": timestamp, "fields": fields, "tags": tags}
+                    datapoints.append(point)
+                except:
+                    pass    
+
+    def MPPTHandler_2(self, serialport, baudrate = 19200, debug = False):
+        try:
+            client = influxdb.InfluxDBClient(host= self.Serverip, port=8086, username = self.Username, password = self.Password, database = self.Database )
+        except Exception as ex:
+            #TODO logfunctien
+            print(str(ex))
+            return
+        
+        datapoints = []
 
         try:
             
@@ -139,9 +327,7 @@ class DeviceReader:
 
 
 
-        while True:
-            
-            
+        while True:    
             try:
                 data = ser.readline()
             
@@ -161,12 +347,21 @@ class DeviceReader:
                 print (data)
 
             if data == "PID	0xA042": #start of dataloop  
-                #write out the data
-                self.MPPTDict_1 = Datadict
-                
-                #reset everything
-                Datadict.clear()
+                if datapoints != []: 
+                    try:
+                        if not client.write_points(datapoints):
+                            raise Exception("Datawrite failed")
+                        else:
+                            print("Succesfull MPPT2 datawrite")
+
+                    
+                    except Exception as ex:
+                        #TODO logmessage
+                        print(ex.args)
+                    
+                    #reset stuff
                 data = None
+                datapoints = []
 
             elif data is not "":
                 #split on a tab
@@ -174,73 +369,13 @@ class DeviceReader:
                 try:
                     key = str(Databuffer[0])    
                     Val = float(Databuffer[1])
-                    Datadict[key] = Val
-                except:
-                    pass    
 
+                    timestamp = time.ctime()
 
-    def MPPTHandler_2(self, serialport, baudrate = 19200, debug = False):
-        Datadict = {}
-
-        try:
-            
-            ser = serial.Serial(port    =   serialport,
-                                baudrate=   baudrate, 
-                                parity  =   serial.PARITY_NONE, 
-                                stopbits=   serial.STOPBITS_ONE, 
-                                bytesize=   serial.EIGHTBITS, 
-                                timeout =   1)
-            time.sleep(0.01)
-
-            
-
-        except serial.SerialException as ex:
-            print("MPPT2 is/was disconnected")
-            return
-    
-        except Exception as ex:
-            print("Ran into an unhandled error!" + str(ex))
-            return
-            
-        time.sleep(.5)
-
-
-
-        while True:
-            
-            
-            try:
-                data = ser.readline()
-            
-            except serial.SerialException as ex:
-                print("MPPT2 was/is disconnected")
-                return
-            try:
-                data = data.decode('utf-8')
-                data = data.rstrip()
-                #strip the /r/n ^^
-                
-            except UnicodeDecodeError as ex:
-            #passes the checksum, i don't use that shit.
-                pass
-            
-            if debug:
-                print (data)
-
-            if data == "PID	0xA042": #start of dataloop  
-                #write out the data
-                self.MPPTDict_2 = Datadict
-                
-                #reset everything
-                Datadict.clear()
-                data = None
-
-            elif data is not "":
-                #split on a tab
-                Databuffer = str(data).split("\t",1)
-                try:
-                    key = str(Databuffer[0])    
-                    Val = float(Databuffer[1])
-                    Datadict[key] = Val
+                    fields = {}
+                    fields["value"] = Val
+                    tags = []
+                    point = {"measurement": key, "time": timestamp, "fields": fields, "tags": tags}
+                    datapoints.append(point)
                 except:
                     pass    
