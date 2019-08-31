@@ -1,7 +1,5 @@
 import serial
-import discord
-from discord.ext.commands import Bot
-from discord.ext import commands
+
 import asyncio
 import time
 import threading
@@ -81,7 +79,7 @@ except Exception as ex:
 
 
 
-devRead = DeviceReader()
+devRead = DeviceReader(Serverip, Database, Username, Password)
 
 #Initialize all the Threads:
 Arduino_reader = threading.Thread(target=devRead.ArduinoHandler, args=(Arduino_Port, 5), daemon = True )
