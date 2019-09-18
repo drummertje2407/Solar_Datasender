@@ -1,5 +1,7 @@
 import serial
-
+import discord
+from discord.ext.commands import Bot
+from discord.ext import commands
 import asyncio
 import time
 import threading
@@ -93,6 +95,17 @@ BMV_reader.start()
 MPPT_reader_1.start()
 MPPT_reader_2.start()
 
+while True:
+    if Arduino_reader._is_stopped:
+        print("Arduino thread has stopped, restarting now")
+        Arduino_reader._stop()
+        Arduino_reader.start()
+    if BMV_reader._is_stopped:
+        print("BMV thread has stopped, restarting now")
+    if MPPT_reader_1._is_stopped:
+        print("MPPT1 thread has stopped, restarting now")
+    if MPPT_reader_2._is_stopped:
+        print("MPPT2 thread has stopped, restarting now")
 input()
 input()
 input()

@@ -3,6 +3,8 @@ import threading
 import serial
 import sys
 import influxdb
+from time import gmtime, strftime
+import datetime
 
 class DeviceReader:
 
@@ -79,9 +81,8 @@ class DeviceReader:
                             if not client.write_points(datapoints):
                                 raise Exception("Datawrite failed")
                             else:
-                                print("Succesfull Arduino datawrite")
+                                print("arduino data send succesfull")                        
 
-                        
                         except Exception as ex:
                             #TODO logmessage
                             print(ex.args)
@@ -93,7 +94,8 @@ class DeviceReader:
                 elif data is not None:
                     Databuffer = str(data).split(" ",1)
                     
-                    timestamp = time.ctime()
+                    timestamp = str(datetime.datetime.utcnow())
+
 
                     key = str(Databuffer[0])    
                     Val = float(Databuffer[1])
@@ -182,9 +184,8 @@ class DeviceReader:
                         if not client.write_points(datapoints):
                             raise Exception("Datawrite failed")
                         else:
-                            print("Succesfull BMV datawrite")
+                            print("BMV data send succesfull")
 
-                    
                     except Exception as ex:
                         #TODO logmessage
                         print(ex.args)
@@ -197,7 +198,7 @@ class DeviceReader:
                 #split on a tab
                 Databuffer = str(data).split("\t",1)
                 try:
-                    timestamp = time.ctime()
+                    timestamp = str(datetime.datetime.utcnow())
 
                     key = str(Databuffer[0])    
                     Val = float(Databuffer[1])
@@ -205,7 +206,7 @@ class DeviceReader:
                     fields = {}
                     fields["value"] = Val
                     tags = []
-                    point = {"measurement": key, "time": timestamp, "fields": fields, "tags": tags}
+                    point = {"measurement": "BMV_"+key, "time": timestamp, "fields": fields, "tags": tags}
                     datapoints.append(point)
                 except:
                     pass        
@@ -264,8 +265,7 @@ class DeviceReader:
                         if not client.write_points(datapoints):
                             raise Exception("Datawrite failed")
                         else:
-                            print("Succesfull MPPT1 datawrite")
-
+                            print("MPPT1 data send succesfull")
                     
                     except Exception as ex:
                         #TODO logmessage
@@ -281,13 +281,13 @@ class DeviceReader:
                 try:
                     key = str(Databuffer[0])    
                     Val = float(Databuffer[1])
+                    timestamp = str(datetime.datetime.utcnow())
 
-                    timestamp = time.ctime()
 
                     fields = {}
                     fields["value"] = Val
                     tags = []
-                    point = {"measurement": key, "time": timestamp, "fields": fields, "tags": tags}
+                    point = {"measurement": "MPPT1_"+key, "time": timestamp, "fields": fields, "tags": tags}
                     datapoints.append(point)
                 except:
                     pass    
@@ -332,7 +332,7 @@ class DeviceReader:
                 data = ser.readline()
             
             except serial.SerialException as ex:
-                print("MPPT1 was/is disconnected")
+                print("MPPT2 was/is disconnected")
 
             try:
                 data = data.decode('utf-8')
@@ -352,8 +352,7 @@ class DeviceReader:
                         if not client.write_points(datapoints):
                             raise Exception("Datawrite failed")
                         else:
-                            print("Succesfull MPPT2 datawrite")
-
+                            print("MPPT2 data send succesfull")
                     
                     except Exception as ex:
                         #TODO logmessage
@@ -369,13 +368,13 @@ class DeviceReader:
                 try:
                     key = str(Databuffer[0])    
                     Val = float(Databuffer[1])
+                    timestamp = str(datetime.datetime.utcnow())
 
-                    timestamp = time.ctime()
 
                     fields = {}
                     fields["value"] = Val
                     tags = []
-                    point = {"measurement": key, "time": timestamp, "fields": fields, "tags": tags}
+                    point = {"measurement": "MPPT2_"+key, "time": timestamp, "fields": fields, "tags": tags}
                     datapoints.append(point)
                 except:
                     pass    
