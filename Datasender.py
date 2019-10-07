@@ -13,6 +13,8 @@ __location__ = os.path.realpath(
     os.path.join(os.getcwd(), os.path.dirname(__file__)))
 configpath = os.path.join(__location__, 'Config.json')
 print(configpath)
+
+
 def CreateConfigfile():
     print("Enter all data please:")
     COMarduino = "/dev/tty" + input("Enter comport arduino: /dev/tty")
@@ -34,10 +36,10 @@ def CreateConfigfile():
     print("Config file is created")
 
 
-#If True it will spit out all the data on console
+# If True it will spit out all the data on console
 DEBUG = True  
 
-#Read, load or make config file
+# Read, load or make config file
 datastore = ""
 try:  
     with open(configpath, "r") as f:
@@ -83,29 +85,19 @@ except Exception as ex:
 
 devRead = DeviceReader(Serverip, Database, Username, Password)
 
-#Initialize all the Threads:
+# Initialize all the Threads:
 Arduino_reader = threading.Thread(target=devRead.ArduinoHandler, args=(Arduino_Port, 5), daemon = True )
 BMV_reader     = threading.Thread(target=devRead.BMVHandler, args=(BMV_Port,), daemon = True)
 MPPT_reader_1  = threading.Thread(target=devRead.MPPTHandler_1, args=(MPPT_1_Port,), daemon = True)
 MPPT_reader_2  = threading.Thread(target=devRead.MPPTHandler_2, args=(MPPT_2_Port,), daemon = True)
 
-#Start all the Threads:
+# Start all the Threads:
 Arduino_reader.start()
 BMV_reader.start()
 MPPT_reader_1.start()
 MPPT_reader_2.start()
 
-while True:
-    if Arduino_reader._is_stopped:
-        print("Arduino thread has stopped, restarting now")
-        Arduino_reader._stop()
-        Arduino_reader.start()
-    if BMV_reader._is_stopped:
-        print("BMV thread has stopped, restarting now")
-    if MPPT_reader_1._is_stopped:
-        print("MPPT1 thread has stopped, restarting now")
-    if MPPT_reader_2._is_stopped:
-        print("MPPT2 thread has stopped, restarting now")
+
 input()
 input()
 input()
