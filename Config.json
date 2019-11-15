@@ -1,6 +1,6 @@
 {
     "COMports": {
-        "Arduino": "COM3",
+        "Arduino": "/dev/ttyACM1",
         "BMV": "/dev/ttyAMA0",
         "MPPT1": "/dev/ttyUSB_A",
         "MPPT2": "/dev/ttyUSB_B"
@@ -12,7 +12,7 @@
     "InfluxDB": {
         "Server_ip": "217.105.168.111",
         "Username": "fynn",
-        "database": "EmelwerdaSolar",
+        "database": "Solar_testing",
         "password": "24072003"
     }
 }

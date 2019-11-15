@@ -1,5 +1,6 @@
 import time
 import threading
+import logging
 from typing import Dict
 
 import serial
@@ -28,6 +29,12 @@ def handshake(ser):
 
 
 class DeviceReader:
+
+    ArduinoData = []
+    MPPT1Data   = []
+    MPPT2Data   = []
+    BMVData     = []
+
 
     def __init__(self, serverip, database, username, password):
         self.Serverip = serverip
@@ -68,7 +75,7 @@ class DeviceReader:
             time.sleep(0.01)
 
         except serial.SerialException as ex:
-            print("Arduino is disconnected")
+            logging.WARNING("Arduino is disconnected")
 
             # Reconnection protocol
             self.DeviceReconnect("Arduino", serialport, baudrate)
@@ -76,13 +83,13 @@ class DeviceReader:
             return
 
         except Exception as ex:
-            print("Ran into an unhandled error!" + str(ex))
+            logging.ERROR("Ran into an unhandled error!" + str(ex))
             return
         time.sleep(.5)
 
         # if succes = true, the handshake is succesfull
         while succes != True:
-            print("Attempting Handshake...")
+            logging.DEBUG("Attempting Handshake...")
             succes = handshake(ser)
             time.sleep(.5)
 
@@ -90,8 +97,7 @@ class DeviceReader:
             client = influxdb.InfluxDBClient(host=self.Serverip, port=8086, username=self.Username,
                                              password=self.Password, database=self.Database)
         except Exception as ex:
-            # TODO logfunction
-            print(str(ex))
+            logging.ERROR("Ran into an unhandled error!" + str(ex))
             return
 
         # list where al the data ends up, gets reset every data loop
@@ -107,23 +113,23 @@ class DeviceReader:
                 # strip the /r/n ^^
 
             except serial.SerialException as ex:
-                print("Arduino was disconnected")
+                logging.WARNING("Arduino is disconnected")
                 # Reconnection protocol
                 self.DeviceReconnect("Arduino", serialport, baudrate)
             except Exception as ex:
-                print("Ran into an unhandled error!" + str(ex))
+                logging.ERROR("Ran into an unhandled error!" + str(ex))
 
             if len(data) > 0:
 
                 if data == 'start':
                     if datapoints:
                         try:
+                            self.ArduinoData = datapoints
                             if not client.write_points(datapoints):
                                 raise Exception("Arduino datawrite failed")
 
                         except Exception as ex:
-                            # TODO logmessage
-                            print(ex.args)
+                            logging.ERROR("Ran into an unhandled error!" + str(ex))
 
                         # reset stuff
                         data = None
@@ -149,7 +155,7 @@ class DeviceReader:
             client = influxdb.InfluxDBClient(host=self.Serverip, port=8086, username=self.Username,
                                              password=self.Password, database=self.Database)
         except Exception as ex:
-            # TODO logfunctien
+            logging.ERROR("Ran into an unhandled error!" + str(ex))
             print(str(ex))
             exit()
 
@@ -167,15 +173,12 @@ class DeviceReader:
 
 
         except serial.SerialException as ex:
-            print("BMV is/was disconnected")
+            logging.WARNING("BMV is/was disconnected")
             # Reconnection protocol
             self.DeviceReconnect("BMV", serialport, baudrate)
 
-
-
         except Exception as ex:
-            print("Ran into an unhandled error!" + str(ex))
-
+            logging.ERROR("Ran into an unhandled error!" + str(ex))
 
         time.sleep(.5)
 
@@ -183,7 +186,7 @@ class DeviceReader:
             try:
                 data = ser.readline()
             except serial.SerialException as ex:
-                print("BMV was/is disconnected")
+                logging.WARNING("BMV is/was disconnected")
                 # Reconnection protocol
                 self.DeviceReconnect("BMV", serialport, baudrate)
 
@@ -202,15 +205,14 @@ class DeviceReader:
             if data == "PID	0x203":  # start of dataloop
                 if datapoints != []:
                     try:
+                        self.BMVData = datapoints
                         if not client.write_points(datapoints):
                             raise Exception("Datawrite failed")
                         else:
                             print("BMV data send succesfull")
 
                     except Exception as ex:
-                        # TODO logmessage
-                        print(ex.args)
-
+                        logging.ERROR(str(ex.args))
                     # reset stuff
                     data = None
                     datapoints = []
@@ -238,8 +240,7 @@ class DeviceReader:
             client = influxdb.InfluxDBClient(host=self.Serverip, port=8086, username=self.Username,
                                              password=self.Password, database=self.Database)
         except Exception as ex:
-            # TODO logfunctien
-            print(str(ex))
+            logging.ERROR(str(ex))
             return
 
         datapoints = []
@@ -255,10 +256,10 @@ class DeviceReader:
             time.sleep(0.01)
 
         except serial.SerialException as ex:
-            print("MPPT1 is/was disconnected")
+            logging.WARNING("MPPT1 is/was disconnected")
             return
         except Exception as ex:
-            print("Ran into an unhandled error!" + str(ex))
+            logging.ERROR("Ran into an unhandled error!" + str(ex))
             return
 
         time.sleep(.5)
@@ -268,7 +269,7 @@ class DeviceReader:
                 data = ser.readline()
 
             except serial.SerialException as ex:
-                print("MPPT1 was/is disconnected")
+                logging.WARNING("MPPT1 is/was disconnected")
 
             try:
                 data = data.decode('utf-8')
@@ -285,14 +286,13 @@ class DeviceReader:
             if data == "PID	0xA042":  # start of dataloop
                 if datapoints:
                     try:
+                        self.MPPT1Data = datapoints
                         if not client.write_points(datapoints):
                             raise Exception("Datawrite failed")
                         else:
-                            print("MPPT1 data send succesfull")
-
+                            logging.DEBUG("MPPT1 data send succesfull")
                     except Exception as ex:
-                        # TODO logmessage
-                        print(ex.args)
+                        logging.ERROR(ex.args)
 
                     # reset stuff
                 data = None
@@ -319,8 +319,7 @@ class DeviceReader:
             client = influxdb.InfluxDBClient(host=self.Serverip, port=8086, username=self.Username,
                                              password=self.Password, database=self.Database)
         except Exception as ex:
-            # TODO logfunctien
-            print(str(ex))
+            logging.ERROR(ex.args)
             return
 
         datapoints = []
@@ -338,12 +337,12 @@ class DeviceReader:
 
 
         except serial.SerialException as ex:
-            print("MPPT1 is/was disconnected")
+            logging.WARNING("MPPT2 is/was disconnected")
             return
 
 
         except Exception as ex:
-            print("Ran into an unhandled error!" + str(ex))
+            logging.ERROR("Ran into an unhandled error!" + str(ex))
             return
 
         time.sleep(.5)
@@ -353,7 +352,7 @@ class DeviceReader:
                 data = ser.readline()
 
             except serial.SerialException as ex:
-                print("MPPT2 was/is disconnected")
+                logging.WARNING("MPPT2 is/was disconnected")
 
             try:
                 data = data.decode('utf-8')
@@ -370,14 +369,13 @@ class DeviceReader:
             if data == "PID	0xA042":  # start of dataloop
                 if datapoints != []:
                     try:
+                        self.MPPT2Data = datapoints
                         if not client.write_points(datapoints):
                             raise Exception("Datawrite failed")
                         else:
-                            print("MPPT2 data send succesfull")
-
+                            logging.DEBUG("MPPT2 data send succesfull")
                     except Exception as ex:
-                        # TODO logmessage
-                        print(ex.args)
+                        logging.ERROR(ex.args)
 
                     # reset stuff
                 data = None

@@ -1,18 +1,21 @@
-import serial
-import discord
-from discord.ext.commands import Bot
-from discord.ext import commands
-import asyncio
 import time
-import threading
 import json
-from DeviceReader import DeviceReader
 import os
+import sys
+import logging
+
+import BackgroundThreading
+
+from PyQt5 import QtWidgets, QtCore
+
+import TouchUI
+import qdarkstyle
+from PyQt5.QtCore import QUrl
+from PyQt5.QtCore import QTimer
 
 __location__ = os.path.realpath(
     os.path.join(os.getcwd(), os.path.dirname(__file__)))
 configpath = os.path.join(__location__, 'Config.json')
-print(configpath)
 
 
 def CreateConfigfile():
@@ -37,7 +40,10 @@ def CreateConfigfile():
 
 
 # If True it will spit out all the data on console
-DEBUG = True  
+DEBUG = True
+
+logging.basicConfig(filename='app.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s')
+
 
 # Read, load or make config file
 datastore = ""
@@ -55,7 +61,7 @@ except FileNotFoundError:
             datastore = json.load(f)
     else: exit()
 except IOError:
-    print("FATAL ERROR: Config.json cannot be opened!")
+    logging.CRITICAL("Config.json cannot be opened!")
     exit()
 
 try:
@@ -81,21 +87,25 @@ except Exception as ex:
 
 
 
+worker =  BackgroundThreading.WorkerThread(, )
+workerThread = QtCore.QThread
+workerThread.started.connect(worker.run)
+
+# Start up GUI
+app = QtWidgets.QApplication(sys.argv)
+# Set dark stylesheet
+app.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())
+
+MainWindow = QtWidgets.QMainWindow()
+ui = TouchUI.Ui_MainWindow()
+ui.setupUi(MainWindow)
+
+MainWindow.show()
+sys.exit(app.exec_())
 
 
-devRead = DeviceReader(Serverip, Database, Username, Password)
 
-# Initialize all the Threads:
-Arduino_reader = threading.Thread(target=devRead.ArduinoHandler, args=(Arduino_Port, 5), daemon = True )
-BMV_reader     = threading.Thread(target=devRead.BMVHandler, args=(BMV_Port,), daemon = True)
-MPPT_reader_1  = threading.Thread(target=devRead.MPPTHandler_1, args=(MPPT_1_Port,), daemon = True)
-MPPT_reader_2  = threading.Thread(target=devRead.MPPTHandler_2, args=(MPPT_2_Port,), daemon = True)
 
-# Start all the Threads:
-Arduino_reader.start()
-BMV_reader.start()
-MPPT_reader_1.start()
-MPPT_reader_2.start()
 
 
 input()
