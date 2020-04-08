@@ -1,33 +1,42 @@
-import time
-import threading
-from typing import Dict
-
+import logging
 import serial
-import sys
-import influxdb
-from time import gmtime, strftime
-import datetime
+import time
 
+import influxdb
+from huawei_lte_api.Client import Client
+from huawei_lte_api.Connection import Connection
+
+def isfloat(value):
+  try:
+    float(value)
+    return True
+  except ValueError:
+    return False
 
 def handshake(ser):
     try:
         ser.write('ready?'.encode())
+        logging.info("Initiating handshake with Arduino")
         time.sleep(0.1)
         data = ser.readline()
     except Exception as ex:
-        print("Ran into an unhandled error!" + str(ex))
-        # strerror = "!!Unknownerror " + str(ex)
+        logging.error("Ran into an unhandled error!" + str(ex))
 
     if data == b'ready!\r\n':
-        print("handshake succesfull")
+        logging.info("handshake succesfull")
         return True
     else:
-        print("Handshake failed!")
-        print(data)
+        logging.info("Handshake failed!")
         return False
 
 
 class DeviceReader:
+
+    ArduinoData = {}
+    MPPT1Data   = {}
+    MPPT2Data   = {}
+    BMVData     = {}
+
 
     def __init__(self, serverip, database, username, password):
         self.Serverip = serverip
@@ -36,7 +45,8 @@ class DeviceReader:
         self.Password = password
 
     # noinspection PyUnusedLocal,PyUnusedLocal
-    def DeviceReconnect(self, name, serialport, baudrate):
+    def DeviceReconnect(self, name, serialport, baudrate, starttime = 0.0):
+        starttime = time.time()
         try:
             ser = serial.Serial(port=serialport,
                                 baudrate=baudrate,
@@ -49,9 +59,17 @@ class DeviceReader:
         # Recursive function
         except serial.SerialException as ex:
             time.sleep(5)
-            print("Attempting reconnect...")
-            self.DeviceReconnect(name, serialport, baudrate)
-        print("Succesfully reconnected with {0}", name)
+            logging.info("Attempting {} reconnect...".format(name))
+            if time.time() - starttime < 600:
+                self.DeviceReconnect(name, serialport, baudrate, starttime)
+            else:
+                logging.info("Reconnect timout, shutting down thread")
+                return
+        except Exception as ex:
+            logging.error(str(ex))
+        if ser:
+            print("Succesfully reconnected with {}".format(name))
+            return ser
 
     # noinspection PyUnusedLocal,PyUnusedLocal,PyUnusedLocal,PyUnusedLocal
     def ArduinoHandler(self, serialport, messages, baudrate=115200, DTR=True):
@@ -67,22 +85,18 @@ class DeviceReader:
                                 timeout=1)
             time.sleep(0.01)
 
-        except serial.SerialException as ex:
-            print("Arduino is disconnected")
-
+        except (serial.SerialException, FileNotFoundError) as ex:
+            logging.warning("Arduino is disconnected")
             # Reconnection protocol
-            self.DeviceReconnect("Arduino", serialport, baudrate)
-
-            return
-
+            # ser = self.DeviceReconnect("Arduino", serialport, baudrate)
         except Exception as ex:
-            print("Ran into an unhandled error!" + str(ex))
+            logging.error("Ran into an unhandled error!" + str(ex))
             return
         time.sleep(.5)
 
         # if succes = true, the handshake is succesfull
         while succes != True:
-            print("Attempting Handshake...")
+            logging.info("Attempting Handshake...")
             succes = handshake(ser)
             time.sleep(.5)
 
@@ -90,12 +104,12 @@ class DeviceReader:
             client = influxdb.InfluxDBClient(host=self.Serverip, port=8086, username=self.Username,
                                              password=self.Password, database=self.Database)
         except Exception as ex:
-            # TODO logfunction
-            print(str(ex))
+            logging.error("Ran into an unhandled error!" + str(ex))
             return
 
         # list where al the data ends up, gets reset every data loop
         datapoints = []
+        fields = {}
 
         # Main loop
         while True:
@@ -107,55 +121,43 @@ class DeviceReader:
                 # strip the /r/n ^^
 
             except serial.SerialException as ex:
-                print("Arduino was disconnected")
+                logging.warning("Arduino is disconnected")
                 # Reconnection protocol
-                self.DeviceReconnect("Arduino", serialport, baudrate)
+                # ser = self.DeviceReconnect("Arduino", serialport, baudrate)
+                if ser:
+                    data = ser.readline()
+                else:
+                    return
             except Exception as ex:
-                print("Ran into an unhandled error!" + str(ex))
+                logging.error("Ran into an unhandled error!" + str(ex))
 
             if len(data) > 0:
 
-                if data == 'start':
-                    if datapoints:
-                        try:
-                            if not client.write_points(datapoints):
-                                raise Exception("Arduino datawrite failed")
-
-                        except Exception as ex:
-                            # TODO logmessage
-                            print(ex.args)
-
-                        # reset stuff
-                        data = None
-                        datapoints = []
+                if data == 'start' and fields != {}:
+                    self.ArduinoData = fields
+                    # reset stuff
+                    data = None
 
                 elif data is not None:
                     Databuffer = str(data).split(" ", 1)
 
-                    timestamp = str(datetime.datetime.utcnow())
+                    try:
+                        key = str(Databuffer[0])
+                        Val = float(Databuffer[1])
 
-                    key = str(Databuffer[0])
-                    Val = float(Databuffer[1])
-
-                    fields = {"value": Val}
-                    tags = []
-                    point = {"measurement": key, "time": timestamp, "fields": fields, "tags": tags}
-                    datapoints.append(point)
+                        fields[key] = Val
+                    # the checksum gives a indexerror so we pass it
+                    except IndexError:
+                        pass
+                    except ValueError:
+                        pass
+                    except Exception as ex:
+                        logging.error(str(Databuffer) + " " + str(ex))
 
     # noinspection PyUnusedLocal,PyUnusedLocal,PyUnusedLocal
-    def BMVHandler(self, serialport, baudrate=19200, debug=False):
-
+    def BMVHandler(self, serialport, baudrate=19200):
+        fields = {}
         try:
-            client = influxdb.InfluxDBClient(host=self.Serverip, port=8086, username=self.Username,
-                                             password=self.Password, database=self.Database)
-        except Exception as ex:
-            # TODO logfunctien
-            print(str(ex))
-            exit()
-
-        datapoints = []
-        try:
-
             ser = serial.Serial(port=serialport,
                                 baudrate=baudrate,
                                 parity=serial.PARITY_NONE,
@@ -164,29 +166,27 @@ class DeviceReader:
                                 timeout=1)
             time.sleep(0.01)
 
-
-
-        except serial.SerialException as ex:
-            print("BMV is/was disconnected")
+        except (serial.SerialException, FileNotFoundError) as ex:
+            logging.warning("BMV is/was disconnected")
             # Reconnection protocol
-            self.DeviceReconnect("BMV", serialport, baudrate)
-
-
-
+            # ser = self.DeviceReconnect("BMV", serialport, baudrate)
         except Exception as ex:
-            print("Ran into an unhandled error!" + str(ex))
-
-
-        time.sleep(.5)
+            logging.error("Ran into an unhandled error!" + str(ex))
 
         while True:
             try:
                 data = ser.readline()
-            except serial.SerialException as ex:
-                print("BMV was/is disconnected")
-                # Reconnection protocol
-                self.DeviceReconnect("BMV", serialport, baudrate)
 
+            except (serial.SerialException, FileNotFoundError) as ex:
+                logging.warning("BMV is/was disconnected")
+                # Reconnection protocol
+                # ser = self.DeviceReconnect("BMV", serialport, baudrate)
+                if ser:
+                    data = ser.readline()
+                else:
+                    return
+            except Exception as ex:
+                logging.error("Ran into an unhandled error!" + str(ex))
             try:
                 data = data.decode('utf-8')
                 data = data.rstrip()
@@ -196,41 +196,29 @@ class DeviceReader:
                 # passes the checksum, i don't use that shit.
                 pass
 
-            if debug:
-                print(data)
-
             if data == "PID	0x203":  # start of dataloop
-                if datapoints != []:
-                    try:
-                        if not client.write_points(datapoints):
-                            raise Exception("Datawrite failed")
-                        else:
-                            print("BMV data send succesfull")
-
-                    except Exception as ex:
-                        # TODO logmessage
-                        print(ex.args)
-
+                if fields != {}:
+                    self.BMVData = fields
                     # reset stuff
                     data = None
-                    datapoints = []
+                    fields = {}
 
             elif data is not "":
                 # split on a tab
                 Databuffer = str(data).split("\t", 1)
                 try:
-                    timestamp = str(datetime.datetime.utcnow())
-
                     key = str(Databuffer[0])
                     Val = float(Databuffer[1])
 
-                    fields = {}
-                    fields["value"] = Val
-                    tags = []
-                    point = {"measurement": "BMV_" + key, "time": timestamp, "fields": fields, "tags": tags}
-                    datapoints.append(point)
-                except:
+                    fields[key] = Val
+                # the checksum gives a indexerror so we pass it
+                except IndexError:
                     pass
+                except ValueError:
+                    pass
+                except Exception as ex:
+                    logging.error(str(Databuffer) + " " + str(ex))
+
 
     # noinspection PyUnusedLocal,PyUnusedLocal,PyUnusedLocal
     def MPPTHandler_1(self, serialport, baudrate=19200, debug=False):
@@ -238,11 +226,10 @@ class DeviceReader:
             client = influxdb.InfluxDBClient(host=self.Serverip, port=8086, username=self.Username,
                                              password=self.Password, database=self.Database)
         except Exception as ex:
-            # TODO logfunctien
-            print(str(ex))
+            logging.error(str(ex))
             return
 
-        datapoints = []
+        fields = {}
 
         try:
 
@@ -254,11 +241,13 @@ class DeviceReader:
                                 timeout=1)
             time.sleep(0.01)
 
-        except serial.SerialException as ex:
-            print("MPPT1 is/was disconnected")
-            return
+
+        except (serial.SerialException, FileNotFoundError) as ex:
+            logging.warning("MPPT1 is/was disconnected")
+            # Reconnection protocol
+            # ser = self.DeviceReconnect("MPPT1", serialport, baudrate)
         except Exception as ex:
-            print("Ran into an unhandled error!" + str(ex))
+            logging.error("Ran into an unhandled error!" + str(ex))
             return
 
         time.sleep(.5)
@@ -267,8 +256,17 @@ class DeviceReader:
             try:
                 data = ser.readline()
 
-            except serial.SerialException as ex:
-                print("MPPT1 was/is disconnected")
+            except (serial.SerialException, FileNotFoundError) as ex:
+                logging.warning("MPPT1 is/was disconnected")
+                # Reconnection protocol
+                # ser = self.DeviceReconnect("MPPT1", serialport, baudrate)
+                if ser:
+                    data = ser.readline()
+                else:
+                    return
+            except Exception as ex:
+                logging.error("Ran into an unhandled error!" + str(ex))
+                return
 
             try:
                 data = data.decode('utf-8')
@@ -279,24 +277,12 @@ class DeviceReader:
                 # passes the checksum, i don't use that shit.
                 pass
 
-            if debug:
-                print(data)
-
             if data == "PID	0xA042":  # start of dataloop
-                if datapoints:
-                    try:
-                        if not client.write_points(datapoints):
-                            raise Exception("Datawrite failed")
-                        else:
-                            print("MPPT1 data send succesfull")
-
-                    except Exception as ex:
-                        # TODO logmessage
-                        print(ex.args)
-
+                if fields != {}:
+                    self.MPPT1Data = fields
                     # reset stuff
-                data = None
-                datapoints = []
+                    data = None
+                    fields = {}
 
             elif data is not "":
                 # split on a tab
@@ -304,14 +290,15 @@ class DeviceReader:
                 try:
                     key = str(Databuffer[0])
                     Val = float(Databuffer[1])
-                    timestamp = str(datetime.datetime.utcnow())
 
-                    fields = {"value": Val}
-                    tags = []
-                    point = {"measurement": "MPPT1_" + key, "time": timestamp, "fields": fields, "tags": tags}
-                    datapoints.append(point)
-                except:
+                    fields[key] = Val
+                # the checksum gives a indexerror so we pass it
+                except IndexError:
                     pass
+                except ValueError:
+                    pass
+                except Exception as ex:
+                    logging.error(str(Databuffer) + " " + str(ex))
 
     # noinspection PyUnusedLocal,PyUnusedLocal,PyUnusedLocal
     def MPPTHandler_2(self, serialport, baudrate=19200, debug=False):
@@ -319,8 +306,7 @@ class DeviceReader:
             client = influxdb.InfluxDBClient(host=self.Serverip, port=8086, username=self.Username,
                                              password=self.Password, database=self.Database)
         except Exception as ex:
-            # TODO logfunctien
-            print(str(ex))
+            logging.error(ex.args)
             return
 
         datapoints = []
@@ -335,15 +321,13 @@ class DeviceReader:
                                 timeout=1)
             time.sleep(0.01)
 
-
-
-        except serial.SerialException as ex:
-            print("MPPT1 is/was disconnected")
-            return
-
+        except (serial.SerialException, FileNotFoundError) as ex:
+            logging.warning("MPPT2 is/was disconnected")
+            # Reconnection protocol
+            # ser = self.DeviceReconnect("MPPT2", serialport, baudrate)
 
         except Exception as ex:
-            print("Ran into an unhandled error!" + str(ex))
+            logging.error("Ran into an unhandled error!" + str(ex))
             return
 
         time.sleep(.5)
@@ -352,8 +336,18 @@ class DeviceReader:
             try:
                 data = ser.readline()
 
-            except serial.SerialException as ex:
-                print("MPPT2 was/is disconnected")
+
+            except (serial.SerialException, FileNotFoundError) as ex:
+                logging.warning("MPPT2 is/was disconnected")
+                # Reconnection protocol
+                # ser = self.DeviceReconnect("MPPT2", serialport, baudrate)
+                if ser:
+                    data = ser.readline()
+                else:
+                    return
+            except Exception as ex:
+                logging.error("Ran into an unhandled error!" + str(ex))
+                return
 
             try:
                 data = data.decode('utf-8')
@@ -368,20 +362,11 @@ class DeviceReader:
                 print(data)
 
             if data == "PID	0xA042":  # start of dataloop
-                if datapoints != []:
-                    try:
-                        if not client.write_points(datapoints):
-                            raise Exception("Datawrite failed")
-                        else:
-                            print("MPPT2 data send succesfull")
-
-                    except Exception as ex:
-                        # TODO logmessage
-                        print(ex.args)
-
+                if fields != {}:
+                    self.MPPT1Data = fields
                     # reset stuff
-                data = None
-                datapoints = []
+                    data = None
+                    fields = {}
 
             elif data is not "":
                 # split on a tab
@@ -389,12 +374,12 @@ class DeviceReader:
                 try:
                     key = str(Databuffer[0])
                     Val = float(Databuffer[1])
-                    timestamp = str(datetime.datetime.utcnow())
 
-                    fields = {}
-                    fields["value"] = Val
-                    tags = []
-                    point = {"measurement": "MPPT2_" + key, "time": timestamp, "fields": fields, "tags": tags}
-                    datapoints.append(point)
-                except:
+                    fields[key] = Val
+                # the checksum gives a indexerror so we pass it
+                except IndexError:
                     pass
+                except ValueError:
+                    pass
+                except Exception as ex:
+                    logging.error(str(Databuffer) + " " + str(ex))
