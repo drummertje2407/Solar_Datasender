@@ -11,6 +11,6 @@ client = Client(connection)
 # This just simplifies access to separate API groups, you can use device = Device(connection) if you want
 
 print(client.device.signal())  # Can be accessed without authorization
-print(client.device.information())
+#print(client.device.information())
 # Needs valid authorization, will throw exception if invalid credentials are passed in URL
 

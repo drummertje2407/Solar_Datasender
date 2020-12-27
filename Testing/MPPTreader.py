@@ -4,7 +4,7 @@ import time
 
 Datadict = {}
 
-ser = serial.Serial(port    =   "COM4",
+ser = serial.Serial(port    =   "/dev/MPPT2",
                     baudrate=   19200, 
                     parity  =   serial.PARITY_NONE, 
                     stopbits=   serial.STOPBITS_ONE, 

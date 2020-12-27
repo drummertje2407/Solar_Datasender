@@ -3,8 +3,6 @@ import serial
 import time
 
 import influxdb
-from huawei_lte_api.Client import Client
-from huawei_lte_api.Connection import Connection
 
 def isfloat(value):
   try:
@@ -86,7 +84,8 @@ class DeviceReader:
             time.sleep(0.01)
 
         except (serial.SerialException, FileNotFoundError) as ex:
-            logging.warning("Arduino is disconnected")
+            logging.warning("Cannot connect to Arduino, continuing without it!")
+            return
             # Reconnection protocol
             # ser = self.DeviceReconnect("Arduino", serialport, baudrate)
         except Exception as ex:
@@ -121,7 +120,7 @@ class DeviceReader:
                 # strip the /r/n ^^
 
             except serial.SerialException as ex:
-                logging.warning("Arduino is disconnected")
+                logging.warning("Cannot connect to Arduino, continuing without it!")
                 # Reconnection protocol
                 # ser = self.DeviceReconnect("Arduino", serialport, baudrate)
                 if ser:
@@ -167,18 +166,19 @@ class DeviceReader:
             time.sleep(0.01)
 
         except (serial.SerialException, FileNotFoundError) as ex:
-            logging.warning("BMV is/was disconnected")
-            # Reconnection protocol
-            # ser = self.DeviceReconnect("BMV", serialport, baudrate)
+            logging.warning("Cannot connect to BMV, continuing without it!")
+            return
+            
         except Exception as ex:
             logging.error("Ran into an unhandled error!" + str(ex))
+            return
 
         while True:
             try:
                 data = ser.readline()
 
             except (serial.SerialException, FileNotFoundError) as ex:
-                logging.warning("BMV is/was disconnected")
+                logging.warning("Cannot connect to BMV, continuing without it!")
                 # Reconnection protocol
                 # ser = self.DeviceReconnect("BMV", serialport, baudrate)
                 if ser:
@@ -243,7 +243,8 @@ class DeviceReader:
 
 
         except (serial.SerialException, FileNotFoundError) as ex:
-            logging.warning("MPPT1 is/was disconnected")
+            logging.warning("Cannot connect to MPPT1, continuing without it!")
+            return
             # Reconnection protocol
             # ser = self.DeviceReconnect("MPPT1", serialport, baudrate)
         except Exception as ex:
@@ -257,7 +258,7 @@ class DeviceReader:
                 data = ser.readline()
 
             except (serial.SerialException, FileNotFoundError) as ex:
-                logging.warning("MPPT1 is/was disconnected")
+                logging.warning("Cannot connect to MPPT1, continuing without it!")
                 # Reconnection protocol
                 # ser = self.DeviceReconnect("MPPT1", serialport, baudrate)
                 if ser:
@@ -310,7 +311,7 @@ class DeviceReader:
             return
 
         datapoints = []
-
+        fields = {}
         try:
 
             ser = serial.Serial(port=serialport,
@@ -322,7 +323,8 @@ class DeviceReader:
             time.sleep(0.01)
 
         except (serial.SerialException, FileNotFoundError) as ex:
-            logging.warning("MPPT2 is/was disconnected")
+            logging.warning("Cannot connect to MPPT2, continuing without it!")
+            return
             # Reconnection protocol
             # ser = self.DeviceReconnect("MPPT2", serialport, baudrate)
 
@@ -338,7 +340,7 @@ class DeviceReader:
 
 
             except (serial.SerialException, FileNotFoundError) as ex:
-                logging.warning("MPPT2 is/was disconnected")
+                logging.warning("Cannot connect to MPPT2, continuing without it!")
                 # Reconnection protocol
                 # ser = self.DeviceReconnect("MPPT2", serialport, baudrate)
                 if ser:
@@ -363,7 +365,7 @@ class DeviceReader:
 
             if data == "PID	0xA042":  # start of dataloop
                 if fields != {}:
-                    self.MPPT1Data = fields
+                    self.MPPT2Data = fields
                     # reset stuff
                     data = None
                     fields = {}
