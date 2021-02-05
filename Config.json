@@ -1,14 +1,13 @@
 {
     "COMports": {
-        "Arduino": "/dev/ttyACM0",
         "BMV": "/dev/ttyAMA0",
         "MPPT1": "/dev/ttyUSB0",
         "MPPT2": "/dev/ttyUSB1"
     },
-    "InfluxDB": {
-        "Server_ip": "217.105.168.111",
-        "Username": "fynn",
-        "database": "EmelwerdaSolar",
-        "password": "24072003"
+    
+    "AdafruitIO": {
+        "username": "",
+        "key" : ""
     }
+
 }
