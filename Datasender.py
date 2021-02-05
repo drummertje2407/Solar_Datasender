@@ -51,50 +51,27 @@ BMV_reader.start()
 MPPT_reader_1.start()
 MPPT_reader_2.start()
 
-try:
-    aio = Client(Adafruit_username, Adafruit_key)
-except Exception as ex:
-    logging.error("Ran into an error while connecting with database!" + str(ex))
-    exit()
-
-def CreateFeed(FeedName):
-    try:
-        result = aio.feeds(FeedName)
-    except RequestError:
-        feed = Feed(name = FeedName)
-        result = aio.create_feed(feed)
-
-
-CreateFeed("batteryvoltage")
-CreateFeed("batterypower")
-CreateFeed("mpptpower")
-
-
+# Strat of the data storing:
 def Sender():
     while True:
-        if devRead.BMVData:
-            BMVfields = devRead.BMVData
-            aio.send_data("batterypower",BMVfields["P"])
-            aio.send_data("batteryvoltage",BMVfields["V"]/1000)
+        try:
+            with open('Data.csv', 'a', newline='') as csvfile:
+                fieldnames = ["batterypower", "batteryvoltage", "mppt 1", "mppt 2"]
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
+                BMVfields = devRead.BMVData
+                Batterypower = BMVfields["P"]
+                Batteryvoltage = BMVfields["V"]/1000
 
-        if devRead.MPPT1Data and devRead.MPPT2Data:
-            MPPT1fields = devRead.MPPT1Data
-            MPPT2fields = devRead.MPPT2Data
-            aio.send_data("mppt1power",(MPPT1fields["PPV"]+MPPT2fields["PPV"])/1000)
+                MPPT1fields = devRead.MPPT1Data
+                MPPT2fields = devRead.MPPT2Data
+                MPPT1 = MPPT1fields["PPV"]/1000
+                MPPT2 = MPPT2fields["PPV"])/1000
 
-        logging.info("Datapoints send")
-        time.sleep(6.1)
+                writer.writerow({"batterypower": Batterypower , "batteryvoltage": Batteryvoltage, "mppt 1" : MPPT1, "mppt 2" : MPPT })
 
-
+        time.sleep(1)
 
 SendThread = threading.Thread(target=Sender, daemon= True)
 SendThread.start()
 input()
-
-
-
-
-
-
-
