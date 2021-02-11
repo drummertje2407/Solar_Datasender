@@ -3,11 +3,5 @@
         "BMV": "/dev/ttyAMA0",
         "MPPT1": "/dev/ttyUSB0",
         "MPPT2": "/dev/ttyUSB1"
-    },
-    
-    "AdafruitIO": {
-        "username": "",
-        "key" : ""
     }
-
 }
