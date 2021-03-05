@@ -2,7 +2,6 @@ import logging
 import serial
 import time
 
-import influxdb
 
 class DeviceReader:
 
