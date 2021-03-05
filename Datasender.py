@@ -81,7 +81,7 @@ def Sender():
         if devRead.MPPT1Data and devRead.MPPT2Data:
             MPPT1fields = devRead.MPPT1Data
             MPPT2fields = devRead.MPPT2Data
-            aio.send_data("mppt1power",(MPPT1fields["PPV"]+MPPT2fields["PPV"])/1000)
+            aio.send_data("mpptpower",(MPPT1fields["PPV"]+MPPT2fields["PPV"])/1000)
 
         logging.info("Datapoints send")
         time.sleep(6.1)
