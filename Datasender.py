@@ -80,6 +80,8 @@ try:
     MPPT_1_Port = datastore["COMports"]["MPPT1"]
     MPPT_2_Port = datastore["COMports"]["MPPT2"]
     BMV_Port = datastore["COMports"]["BMV"]
+    Clientid = datastore["DiscordBot"]["Clientid"]
+    defaultChannel = datastore["DiscordBot"]["DefaultChannel"]
     Serverip = datastore["InfluxDB"]["Server_ip"]
     Database = datastore["InfluxDB"]["database"]
     Username = datastore["InfluxDB"]["Username"]
@@ -108,6 +110,11 @@ Arduino_reader.start()
 BMV_reader.start()
 MPPT_reader_1.start()
 MPPT_reader_2.start()
+
+# Give flask the name of the process thingie so it knows where to look for:
+app = Flask(__name__)
+socketio = SocketIO(app)
+
 
 try:
     client = influxdb.InfluxDBClient(host=Serverip, port=8086, username=Username,
@@ -144,13 +151,37 @@ def Sender():
         client.write_points(points)
         logging.info("Datapoints send")
         points = []
+
+        Round = 5
+        Signalstrenght = 5
+        Speed = devRead.ArduinoData.get("speed", "N/A")
+        Mppt1_P = devRead.MPPT1Data.get("PPV", "N/A")
+        Mppt2_P = devRead.MPPT2Data.get("PPV", "N/A")
+        Battery_P = devRead.BMVData.get("P", "N/A")
+        Battery_U = devRead.BMVData.get("V", "N/A")
+        Battery_P_average = Battery_P
+
+
+        socketio.emit("Update",
+                      {
+                          "Round":                 Round,
+                          "Signalstrenght":        Signalstrenght,
+                          "Speed":                 Speed,
+                          "Mppt1_P":               Mppt1_P,
+                          "Mppt2_P":               Battery_U,
+                          "Battery_P":             Battery_P,
+                          "Battery_U":             Battery_U,
+                          "Battery_P_average":     Battery_P_average
+                      }, namespace="/")
         time.sleep(.5)
 
-
+@app.route("/")
+def home():
+    return render_template("GUI.html")
 
 SendThread = threading.Thread(target=Sender, daemon= True)
 SendThread.start()
-
+app.run()
 
 
 
