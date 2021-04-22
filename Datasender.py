@@ -23,16 +23,13 @@ def CreateConfigfile():
     COMarduino = "/dev/tty" + input("Enter comport arduino: /dev/tty")
     COMBMV = "/dev/tty" + input("Enter comport BMV: /dev/tty")
     COMMPPT1 = "/dev/tty" + input("Enter comport MPPT1: /dev/tty")
-    COMMPPT2 = "/dev/tty" + input("Enter comport MPPT2: /dev/ttyM")
-    clientid = input("Enter Clientid:")
-    defaultchannelid = input("Enter defaultchannelid:")
+    COMMPPT2 = "/dev/tty" + input("Enter comport MPPT2: /dev/tty")
     namedatabase = input("Enter database name:")
     serverip = input("Enter Server_ip: ")
     username = input("Enter username: ")
     password = input("Enter password: ")
 
     var = {"COMports":   {"Arduino": COMarduino, "MPPT1": COMMPPT1, "MPPT2": COMMPPT2, "BMV": COMBMV},
-           "DiscordBot": {"Clientid": clientid, "DefaultChannel": defaultchannelid},
            "InfluxDB":   {"database": namedatabase, "Server_ip": serverip, "Username": username, "password": password}}
 
     file = open(configpath, "w+")
@@ -80,8 +77,7 @@ try:
     MPPT_1_Port = datastore["COMports"]["MPPT1"]
     MPPT_2_Port = datastore["COMports"]["MPPT2"]
     BMV_Port = datastore["COMports"]["BMV"]
-    Clientid = datastore["DiscordBot"]["Clientid"]
-    defaultChannel = datastore["DiscordBot"]["DefaultChannel"]
+
     Serverip = datastore["InfluxDB"]["Server_ip"]
     Database = datastore["InfluxDB"]["database"]
     Username = datastore["InfluxDB"]["Username"]

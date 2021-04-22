@@ -5,10 +5,7 @@
         "MPPT1": "/dev/ttyUSB0",
         "MPPT2": "/dev/ttyUSB1"
     },
-    "DiscordBot": {
-        "Clientid": "NTQ4OTAxOTUwNDUyNzkzMzYw.D20wgw.oXmTalXAgOvTFRzaTfwRm6bRoa0",
-        "DefaultChannel": "548903693009813524"
-    },
+
     "InfluxDB": {
         "Server_ip": "217.105.168.111",
         "Username": "fynn",
